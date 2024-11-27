@@ -53,7 +53,7 @@ def download_video():
 
         # Initialize YouTube object and get the highest resolution stream
         # yt = YouTube(video_url, on_progress_callback = on_progress, use_po_token=True)
-        yt = YouTube(video_url, on_progress_callback = on_progress)
+        yt = YouTube(video_url, on_progress_callback = on_progress, use_po_token=True)
         # ys = yt.streams.get_highest_resolution()
 
         if method == 'itag_18':
