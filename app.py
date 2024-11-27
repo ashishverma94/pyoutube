@@ -9,6 +9,7 @@ import re
 
 app = Flask(__name__)
 CORS(app)
+
 # Function to get the user's Downloads folder dynamically
 def get_download_folder():
     if platform.system() == 'Windows':
@@ -26,10 +27,10 @@ def sanitize_filename(filename):
     filename = re.sub(r'[<>:"/\\|?*]', '', filename)
     return filename
 
-
 @app.route('/', methods=['GET']) 
 def check_api():
     return 'API is working'
+
 # API endpoint to download video
 @app.route('/download', methods=['POST'])
 def download_video():
@@ -38,12 +39,7 @@ def download_video():
         data = request.json
         video_url = data.get('url')
         method = data.get('method') 
-        count = data.get('count') 
-
-        print(video_url)
-
-        def return_string(input_string):
-            return input_string
+        count = data.get('count', 1)  # Default count is 1 if not provided
 
         if not video_url:
             return jsonify({"error": "URL is required"}), 400
@@ -51,34 +47,38 @@ def download_video():
         # Get the dynamic download path
         download_path = get_download_folder()
 
-        # Initialize YouTube object and get the highest resolution stream
-        # yt = YouTube(video_url, on_progress_callback = on_progress, use_po_token=True)
-        yt = YouTube(video_url, on_progress_callback = on_progress, use_po_token=True)
-        # ys = yt.streams.get_highest_resolution()
+        # Ensure the download directory exists
+        if not download_path.exists():
+            download_path.mkdir(parents=True)
 
+        # Initialize YouTube object with use_po_token=True for bot detection bypass
+        yt = YouTube(video_url, on_progress_callback=on_progress, use_po_token=True)
+
+        # Select the appropriate stream based on the method
         if method == 'itag_18':
             ys = yt.streams.get_by_itag(18)  # Itag 18 corresponds to 360p mp4
         elif method == 'itag_128':
-            ys = yt.streams.get_by_itag(140)  # Itag 140 corresponds to audio stream (usually)
+            ys = yt.streams.get_by_itag(140)  # Itag 140 corresponds to audio stream
         else:
-            ys = yt.streams.get_highest_resolution()  # Get the highest resolution stream
+            ys = yt.streams.get_highest_resolution()  # Default to highest resolution
 
+        # Check if the stream was found, else return an error
+        if not ys:
+            return jsonify({"error": f"Stream with method '{method}' not found."}), 400
 
-
-        # for stream in yt.streams:
-    # print(stream.itag, stream.resolution, stream.mime_type)
-
-        # Download the video
+        # Sanitize the filename to remove invalid characters
         sanitized_title = sanitize_filename(yt.title)
         download_filename = f"{sanitized_title}({count}).mp4"
+
         # Download the video
         ys.download(str(download_path / download_filename))
 
         return jsonify({"message": f"'{yt.title}' downloaded successfully!"}), 200
 
     except Exception as e:
-        print("error", e)
+        print("Error:", e)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
+    # Use the environment variable PORT or default to 5000 for local development
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
